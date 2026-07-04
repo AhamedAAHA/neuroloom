@@ -40,6 +40,39 @@
   .card {
     @apply rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm;
   }
+  .font-display {
+    font-family: var(--font-display), var(--font-geist-sans), system-ui, sans-serif;
+  }
+  .chaos-word {
+    background: linear-gradient(
+      120deg,
+      #ff6b6b 0%,
+      #ff9f6b 25%,
+      #ffd36b 45%,
+      #4ecdc4 70%,
+      #6b9fff 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: chaos-shimmer 4s ease-in-out infinite;
+    text-shadow: 0 0 40px rgba(255, 107, 107, 0.35);
+  }
+  .hero-scrim {
+    background: linear-gradient(
+      105deg,
+      rgba(9, 9, 11, 0.97) 0%,
+      rgba(9, 9, 11, 0.88) 42%,
+      rgba(9, 9, 11, 0.45) 68%,
+      rgba(9, 9, 11, 0.2) 100%
+    );
+  }
+}
+
+@keyframes chaos-shimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
 }
 
 .senior-text {

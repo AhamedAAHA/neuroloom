@@ -2,10 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { InfiniteSlider } from "@/components/ui/infinite-slider";
 import { ProgressiveBlur } from "@/components/ui/progressive-blur";
 import { SiteHeader } from "@/components/SiteHeader";
+import { AnimatedHeroHeadline } from "@/components/AnimatedHeroHeadline";
 import { ChevronRight } from "lucide-react";
 import { ALL_AGENTS, AgentIcon, BRAND } from "@/lib/icons";
 
@@ -23,73 +25,88 @@ export function HeroSection() {
     <>
       <SiteHeader />
       <main className="overflow-x-hidden bg-background">
-        <section>
-          <div className="relative py-24 md:pb-32 lg:pb-36 lg:pt-72">
-            <div className="relative z-10 mx-auto flex max-w-7xl flex-col px-6 lg:block lg:px-12">
-              <div className="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
-                <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-muted-foreground">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#4ecdc4] animate-pulse" />
-                  Multi-agent care · Gemma on AMD
-                </p>
-                <h1 className="mt-4 max-w-2xl text-balance text-5xl font-bold tracking-tight md:text-6xl lg:mt-8 xl:text-7xl">
-                  Care shouldn&apos;t feel like{" "}
-                  <span className="bg-gradient-to-r from-[#ff6b6b] via-[#ff8e8e] to-[#4ecdc4] bg-clip-text text-transparent">
-                    chaos
-                  </span>
-                </h1>
-                <p className="mt-8 max-w-2xl text-balance text-lg text-muted-foreground">
-                  Neuroloom weaves your family&apos;s care into one living command center —
-                  medications, handoffs, documents, and emergencies.
-                </p>
-
-                <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-                  <Button asChild size="lg" className="h-12 rounded-full pl-5 pr-3 text-base">
-                    <Link href="/onboarding">
-                      <span className="text-nowrap">Create Care Circle</span>
-                      <ChevronRight className="ml-1 size-5" />
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="ghost"
-                    className="h-12 rounded-full px-5 text-base hover:bg-white/5"
-                  >
-                    <Link href="#agents">
-                      <span className="text-nowrap">See how it works</span>
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="pointer-events-none absolute inset-1 overflow-hidden rounded-3xl border border-white/10 sm:aspect-video lg:rounded-[3rem]">
+        {/* Hero — fixed layout: text never sits under raw video */}
+        <section className="relative min-h-[92vh] overflow-hidden">
+          {/* Video layer (background only) */}
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-y-0 right-0 w-full lg:w-[62%] overflow-hidden rounded-none lg:rounded-l-[3rem] border-0 lg:border-l border-white/10">
               <video
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="size-full object-cover opacity-40 invert dark:opacity-50 dark:invert-0 dark:lg:opacity-70"
+                className="size-full object-cover opacity-50 lg:opacity-70"
                 src="https://ik.imagekit.io/lrigu76hy/tailark/dna-video.mp4?updatedAt=1745736251477"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+            </div>
+            <div className="hero-scrim absolute inset-0" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background" />
+          </div>
+
+          {/* Content layer — always on top, readable */}
+          <div className="relative z-20 mx-auto flex min-h-[92vh] max-w-7xl flex-col justify-center px-6 pb-20 pt-32 lg:px-12 lg:pt-36">
+            <div className="max-w-2xl rounded-3xl border border-white/10 bg-background/40 p-8 backdrop-blur-md lg:bg-background/30 lg:p-10">
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-medium text-zinc-200"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-[#4ecdc4] animate-pulse" />
+                Multi-agent care · Gemma on AMD
+              </motion.p>
+
+              <AnimatedHeroHeadline />
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.85, duration: 0.6 }}
+                className="mt-8 max-w-xl text-balance text-lg leading-relaxed text-zinc-300"
+              >
+                Neuroloom weaves your family&apos;s care into one living command center —
+                medications, handoffs, documents, and emergencies.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1, duration: 0.6 }}
+                className="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+              >
+                <Button asChild size="lg" className="h-12 rounded-full pl-5 pr-3 text-base shadow-lg shadow-[#ff6b6b]/20">
+                  <Link href="/onboarding">
+                    <span className="text-nowrap">Create Care Circle</span>
+                    <ChevronRight className="ml-1 size-5" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-12 rounded-full border-white/20 bg-white/5 px-5 text-base text-zinc-100 hover:bg-white/10"
+                >
+                  <Link href="#agents">
+                    <span className="text-nowrap">See how it works</span>
+                  </Link>
+                </Button>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        <section className="bg-background pb-2">
+        {/* Partners */}
+        <section className="relative z-10 border-t border-white/10 bg-background py-6">
           <div className="group relative m-auto max-w-7xl px-6">
             <div className="flex flex-col items-center md:flex-row">
               <div className="md:max-w-48 md:border-r md:border-white/10 md:pr-6">
-                <p className="text-end text-sm text-muted-foreground">Powered by</p>
+                <p className="text-center text-sm font-medium text-zinc-300 md:text-end">Powered by</p>
               </div>
-              <div className="relative py-6 md:w-[calc(100%-12rem)]">
+              <div className="relative py-4 md:w-[calc(100%-12rem)]">
                 <InfiniteSlider speedOnHover={20} speed={40} gap={112}>
                   {PARTNERS.map((p) => (
                     <div key={p.name} className="flex px-4">
-                      <span className="text-sm font-semibold tracking-wide text-muted-foreground/80">
-                        {p.label}
-                      </span>
+                      <span className="text-sm font-semibold tracking-wide text-zinc-400">{p.label}</span>
                     </div>
                   ))}
                 </InfiniteSlider>
@@ -103,10 +120,12 @@ export function HeroSection() {
         </section>
 
         {/* Features */}
-        <section id="features" className="border-t border-white/10 py-24">
+        <section id="features" className="relative z-10 border-t border-white/10 bg-zinc-950/50 py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <h2 className="text-center text-3xl font-bold md:text-4xl">53M caregivers. Zero command centers.</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
+            <h2 className="text-center font-display text-3xl font-bold text-white md:text-4xl">
+              53M caregivers. Zero command centers.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-center text-base leading-relaxed text-zinc-400">
               Families juggle WhatsApp, sticky notes, and scattered PDFs while aging parents need coordinated care.
             </p>
             <div className="mt-16 grid gap-6 md:grid-cols-3">
@@ -117,12 +136,10 @@ export function HeroSection() {
               ].map((s) => (
                 <div
                   key={s.label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-sm"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 text-center backdrop-blur-sm"
                 >
-                  <div className="text-4xl font-bold bg-gradient-to-r from-[#ff6b6b] to-[#4ecdc4] bg-clip-text text-transparent">
-                    {s.value}
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{s.label}</p>
+                  <div className="font-display text-4xl font-bold text-gradient">{s.value}</div>
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-300">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -130,20 +147,22 @@ export function HeroSection() {
         </section>
 
         {/* Agents */}
-        <section id="agents" className="py-24">
+        <section id="agents" className="relative z-10 py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <h2 className="text-center text-3xl font-bold md:text-4xl">Nine agents. One care circle.</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
+            <h2 className="text-center font-display text-3xl font-bold text-white md:text-4xl">
+              Nine agents. One care circle.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-center text-base text-zinc-400">
               Orchestrated by Conductor, powered by Gemma on AMD GPUs.
             </p>
-            <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ALL_AGENTS.map((agent) => (
                 <div
                   key={agent}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-[#4ecdc4]/30"
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-[#4ecdc4]/40 hover:bg-white/[0.06]"
                 >
                   <AgentIcon name={agent.replace(/\s/g, "")} size={26} />
-                  <span className="text-sm font-medium">{agent}</span>
+                  <span className="text-sm font-medium text-zinc-100">{agent}</span>
                 </div>
               ))}
             </div>
@@ -151,8 +170,8 @@ export function HeroSection() {
         </section>
 
         {/* AMD */}
-        <section id="amd" className="border-y border-white/10 bg-white/[0.02] py-24">
-          <div className="mx-auto flex max-w-7xl flex-col items-center gap-10 px-6 md:flex-row">
+        <section id="amd" className="relative z-10 border-y border-white/10 bg-zinc-950/50 py-24">
+          <div className="mx-auto flex max-w-7xl flex-col items-center gap-10 px-6 md:flex-row md:text-left">
             <div
               className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl"
               style={{ backgroundColor: `${BRAND.teal}18` }}
@@ -160,8 +179,8 @@ export function HeroSection() {
               <span className="text-3xl">🛡️</span>
             </div>
             <div>
-              <h2 className="text-3xl font-bold">Sensitive data stays on AMD</h2>
-              <p className="mt-4 max-w-2xl text-muted-foreground leading-relaxed">
+              <h2 className="font-display text-3xl font-bold text-white">Sensitive data stays on AMD</h2>
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
                 Prescriptions and discharge papers are processed by Gemma on AMD Developer Cloud —
                 not retained on third-party APIs.
               </p>
@@ -170,17 +189,17 @@ export function HeroSection() {
         </section>
 
         {/* CTA */}
-        <section className="py-24 text-center">
+        <section className="relative z-10 py-24 text-center">
           <div className="mx-auto max-w-7xl px-6">
-            <h2 className="text-3xl font-bold">Start your care circle</h2>
-            <p className="mt-4 text-muted-foreground">Free for one care recipient. Live in minutes.</p>
-            <Button asChild size="lg" className="mt-10 h-12 rounded-full px-8">
+            <h2 className="font-display text-3xl font-bold text-white">Start your care circle</h2>
+            <p className="mt-4 text-zinc-400">Free for one care recipient. Live in minutes.</p>
+            <Button asChild size="lg" className="mt-10 h-12 rounded-full px-8 shadow-lg shadow-[#ff6b6b]/20">
               <Link href="/onboarding">Launch Neuroloom</Link>
             </Button>
           </div>
         </section>
 
-        <footer className="border-t border-white/10 py-10 text-center text-sm text-muted-foreground">
+        <footer className="relative z-10 border-t border-white/10 py-10 text-center text-sm text-zinc-500">
           <p>Neuroloom — Coordination only, not medical advice.</p>
           <p className="mt-2">Gemma on AMD · Multi-Agent · MIT License</p>
         </footer>
