@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: neuroloom
+      POSTGRES_PASSWORD: neuroloom
+      POSTGRES_DB: neuroloom
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neuroloom"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: neuroloom
+      MINIO_ROOT_PASSWORD: neuroloomsecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://neuroloom:neuroloom@postgres:5432/neuroloom
+      REDIS_URL: redis://redis:6379/0
+      GEMMA_INFERENCE_URL: http://gemma-inference:8080
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY:-}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: neuroloom
+      MINIO_SECRET_KEY: neuroloomsecret
+      CORS_ORIGINS: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gemma-inference:
+        condition: service_started
+    volumes:
+      - ./services/api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://neuroloom:neuroloom@postgres:5432/neuroloom
+      REDIS_URL: redis://redis:6379/0
+      GEMMA_INFERENCE_URL: http://gemma-inference:8080
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/api:/app
+    command: celery -A app.worker.celery_app worker --loglevel=info
+
+  gemma-inference:
+    build:
+      context: ./services/gemma-inference
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      MODEL_NAME: google/gemma-3-4b-it
+      ROCM_VISIBLE_DEVICES: ${ROCM_VISIBLE_DEVICES:-}
+    # On AMD Developer Cloud, mount GPU and use ROCm-enabled image
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+
+  web:
+    build:
+      context: ./services/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./services/web:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  minio_data:
