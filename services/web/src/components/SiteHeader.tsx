@@ -29,12 +29,13 @@ export function SiteHeader({ solid = false }: { solid?: boolean }) {
   }, [scrollYProgress, solid]);
 
   return (
-    <header>
-      <nav data-state={menuState && "active"} className="group fixed z-50 w-full pt-2">
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-50">
+      <nav data-state={menuState && "active"} className="group pointer-events-auto w-full pt-2">
         <div
           className={cn(
             "mx-auto max-w-7xl rounded-3xl px-6 transition-all duration-300 lg:px-12",
-            scrolled && "bg-background/60 backdrop-blur-2xl border border-white/5"
+            "border border-white/10 bg-background/70 backdrop-blur-xl",
+            scrolled && "bg-background/85 shadow-lg shadow-black/20"
           )}
         >
           <motion.div
@@ -64,7 +65,7 @@ export function SiteHeader({ solid = false }: { solid?: boolean }) {
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-muted-foreground hover:text-foreground block duration-150"
+                        className="block text-zinc-300 duration-150 hover:text-white"
                       >
                         {item.name}
                       </Link>
@@ -81,7 +82,7 @@ export function SiteHeader({ solid = false }: { solid?: boolean }) {
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-muted-foreground hover:text-foreground block duration-150"
+                        className="block text-zinc-300 duration-150 hover:text-white"
                         onClick={() => setMenuState(false)}
                       >
                         {item.name}
