@@ -98,11 +98,11 @@ export default function ActivityTimeline({ items }: { items: ActivityItem[] }) {
                 {item.detail && (
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.detail}</p>
                 )}
-                {item.meta?.pipeline && (
+                {Array.isArray(item.meta?.pipeline) && item.meta.pipeline.length > 0 ? (
                   <p className="text-[10px] text-[#4ecdc4] mt-1 font-mono">
                     {(item.meta.pipeline as string[]).join(" → ")}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
           );

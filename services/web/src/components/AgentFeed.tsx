@@ -85,18 +85,18 @@ export default function AgentFeed({ agents }: { agents: AgentRun[] }) {
                   {pipeline && pipeline.length > 0 && (
                     <div className="text-[#4ecdc4] font-mono">Pipeline: {pipeline.join(" → ")}</div>
                   )}
-                  {a.metadata?.action && (
+                  {a.metadata?.action != null ? (
                     <div>
                       <span className="text-foreground">Action:</span> {String(a.metadata.action)}
                     </div>
-                  )}
-                  {a.metadata?.alerts && Array.isArray(a.metadata.alerts) && a.metadata.alerts.length > 0 && (
+                  ) : null}
+                  {Array.isArray(a.metadata?.alerts) && a.metadata.alerts.length > 0 ? (
                     <ul className="list-disc pl-4 text-amber-400">
                       {(a.metadata.alerts as string[]).map((alert) => (
                         <li key={alert}>{alert}</li>
                       ))}
                     </ul>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
