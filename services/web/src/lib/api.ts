@@ -1,10 +1,12 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const { authHeaders } = await import("@/lib/auth-session");
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...authHeaders(),
       ...options?.headers,
     },
   });
@@ -13,6 +15,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(err || res.statusText);
   }
   return res.json();
+}
+
+async function requestOptional<T>(path: string, fallback: T, options?: RequestInit): Promise<T> {
+  try {
+    return await request<T>(path, options);
+  } catch {
+    return fallback;
+  }
 }
 
 export interface Circle {
@@ -40,6 +50,51 @@ export interface AgentRun {
   message: string;
   model_route: string;
   created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ActivityItem {
+  type: "medication" | "checkin" | "handoff" | "document" | "task" | "agent";
+  id: string;
+  title: string;
+  detail: string;
+  timestamp: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface AgentStats {
+  total_runs: number;
+  by_agent: Record<string, number>;
+  by_status: Record<string, number>;
+  recent_pipelines: Array<{ action?: string; pipeline?: string[]; at: string }>;
+}
+
+export interface GemmaHealth {
+  status: string;
+  route: string;
+  endpoint: string;
+  fallback?: string;
+  details?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface AuthUser {
+  email: string;
+  name: string;
+  role: string;
+}
+
+export interface MagicLinkResult {
+  message: string;
+  magic_link: string;
+  expires_at: string;
+}
+
+export interface VerifyResult {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+  circles: Array<{ circle_id: string; name: string; role: string }>;
 }
 
 export const api = {
@@ -114,6 +169,35 @@ export const api = {
   generateEmergency: (id: string) => request(`/api/circles/${id}/emergency-pack`, { method: "POST" }),
 
   getAgents: (id: string) => request<AgentRun[]>(`/api/circles/${id}/agents`),
+
+  getAgentStats: (id: string) =>
+    requestOptional<AgentStats>(`/api/circles/${id}/agents/stats`, {
+      total_runs: 0,
+      by_agent: {},
+      by_status: {},
+      recent_pipelines: [],
+    }),
+
+  getActivity: (id: string) => requestOptional<ActivityItem[]>(`/api/circles/${id}/activity`, []),
+
+  getGemmaHealth: () =>
+    requestOptional<GemmaHealth>("/health/gemma", {
+      status: "offline",
+      route: "gemma-amd",
+      endpoint: "",
+      fallback: "local-fallback",
+    }),
+
+  requestMagicLink: (email: string) =>
+    request<MagicLinkResult>("/api/auth/magic-link", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyMagicLink: (token: string) =>
+    request<VerifyResult>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+
+  getMe: () => request<AuthUser>("/api/auth/me"),
 
   getGraph: (id: string) => request<{ nodes: GraphNode[]; edges: GraphEdge[] }>(`/api/circles/${id}/graph`),
 };

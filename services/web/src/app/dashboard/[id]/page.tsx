@@ -8,7 +8,6 @@ import {
   Category,
   Cpu,
   DocumentUpload,
-  Flash,
   Health,
   Heart,
   People,
@@ -16,8 +15,9 @@ import {
   TaskSquare,
   TickCircle,
   Warning2,
+  Setting2,
 } from "iconsax-react";
-import { api, AgentRun, getWsUrl, Medication } from "@/lib/api";
+import { api, AgentRun, ActivityItem, AgentStats, getWsUrl, Medication } from "@/lib/api";
 import {
   BRAND,
   BrandLogo,
@@ -28,8 +28,23 @@ import {
 } from "@/lib/icons";
 import AgentFeed from "@/components/AgentFeed";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
+import { GemmaHealthBadge } from "@/components/dashboard/GemmaHealthBadge";
+import { DashboardSettings } from "@/components/dashboard/DashboardSettings";
+import dynamic from "next/dynamic";
+import { ControlAction } from "@/lib/control-settings";
+import { saveCircleSession } from "@/lib/circle-session";
+import { getAuthSession, roleLabel } from "@/lib/auth-session";
 
-type Tab = "overview" | "meds" | "documents" | "handoffs" | "checkins" | "tasks" | "emergency";
+const DashboardInteractiveControls = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardInteractiveControls").then(
+      (m) => m.DashboardInteractiveControls
+    ),
+  { ssr: false }
+);
+
+type Tab = "overview" | "meds" | "documents" | "handoffs" | "checkins" | "tasks" | "emergency" | "settings";
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
   const [circleId, setCircleId] = useState<string>("");
@@ -55,21 +70,29 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     pin: string;
   } | null>(null);
   const [documents, setDocuments] = useState<Array<{ id: string; filename: string; summary?: string }>>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [agentStats, setAgentStats] = useState<AgentStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [authUser] = useState(() => (typeof window !== "undefined" ? getAuthSession() : null));
 
   useEffect(() => {
-    params.then((p) => setCircleId(p.id));
+    params.then((p) => {
+      setCircleId(p.id);
+      saveCircleSession(p.id);
+    });
   }, [params]);
 
   const refresh = useCallback(async () => {
     if (!circleId) return;
-    const [c, m, a, h, t, d] = await Promise.all([
+    const [c, m, a, h, t, d, act, stats] = await Promise.all([
       api.getCircle(circleId),
       api.getMedications(circleId),
       api.getAgents(circleId),
       api.getHandoffs(circleId),
       api.getTasks(circleId),
       api.getDocuments(circleId),
+      api.getActivity(circleId),
+      api.getAgentStats(circleId),
     ]);
     setCircle(c);
     setMeds(m);
@@ -77,6 +100,8 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     setHandoffs(h as typeof handoffs);
     setTasks(t as typeof tasks);
     setDocuments(d as typeof documents);
+    setActivity(act);
+    setAgentStats(stats);
   }, [circleId]);
 
   useEffect(() => {
@@ -96,6 +121,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
           message: event.message,
           model_route: event.route,
           created_at: event.timestamp,
+          metadata: event.metadata || {},
         },
         ...prev,
       ]);
@@ -159,6 +185,30 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleControlAction = async (action: Exclude<ControlAction, `tab_${Tab}`>) => {
+    switch (action) {
+      case "action_analyze_meds":
+        setTab("meds");
+        await extractMeds();
+        break;
+      case "action_handoff":
+        setTab("handoffs");
+        await createHandoff();
+        break;
+      case "action_checkin":
+        setTab("checkins");
+        await submitCheckIn();
+        break;
+      case "action_emergency":
+        setTab("emergency");
+        await genEmergency();
+        break;
+      case "action_help":
+        setTab("overview");
+        break;
+    }
+  };
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Command Center", icon: <Category size={20} color="currentColor" variant="Bulk" /> },
     { id: "meds", label: "MedGuard", icon: <Health size={20} color="currentColor" variant="Bulk" /> },
@@ -167,6 +217,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     { id: "checkins", label: "Check-ins", icon: <Heart size={20} color="currentColor" variant="Bulk" /> },
     { id: "tasks", label: "Family Sync", icon: <TaskSquare size={20} color="currentColor" variant="Bulk" /> },
     { id: "emergency", label: "Emergency", icon: <Warning2 size={20} color="currentColor" variant="Bold" /> },
+    { id: "settings", label: "Settings", icon: <Setting2 size={20} color="currentColor" variant="Bulk" /> },
   ];
 
   if (!circleId)
@@ -197,6 +248,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
           </button>
         ))}
         <Link
+          href="/onboarding?new=1"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-zinc-500 hover:bg-white/5 transition"
+        >
+          <Add size={20} color="currentColor" />
+          New care circle
+        </Link>
+        <Link
           href={`/senior?circle=${circleId}`}
           className="mt-auto flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-[#ff8e8e] hover:bg-white/5 transition"
         >
@@ -214,9 +272,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
               {(circle?.recipient as { name?: string })?.name || "—"}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-[#4ecdc4] px-3 py-1.5 rounded-full border border-[#4ecdc4]/30 bg-[#4ecdc4]/10">
-            <Flash size={14} color={BRAND.teal} variant="Bold" />
-            Gemma on AMD
+          <div className="flex items-center gap-3">
+            {authUser && (
+              <span className="hidden sm:inline text-xs text-muted-foreground">
+                {authUser.name} · {roleLabel(authUser.role)}
+              </span>
+            )}
+            <GemmaHealthBadge />
           </div>
         </header>
 
@@ -243,8 +305,25 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                   <StatCard icon={<HealthIcon size={24} color={BRAND.teal} variant="Bulk" />} label="Medications" value={meds.length} />
                   <StatCard icon={<DocumentText size={24} color="#a78bfa" variant="Bulk" />} label="Documents" value={documents.length} />
                   <StatCard icon={<People size={24} color="#ff8e8e" variant="Bulk" />} label="Handoffs" value={handoffs.length} />
-                  <StatCard icon={<CategoryIcon size={24} color="#60a5fa" variant="Bulk" />} label="Agent runs" value={agents.length} />
+                  <StatCard icon={<CategoryIcon size={24} color="#60a5fa" variant="Bulk" />} label="Agent runs" value={agentStats?.total_runs ?? agents.length} />
                 </div>
+                {agentStats && agentStats.recent_pipelines.length > 0 && (
+                  <div className="card p-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Cpu size={16} color={BRAND.coral} variant="Bulk" />
+                      Recent Agent Pipelines
+                    </h3>
+                    <div className="space-y-2">
+                      {agentStats.recent_pipelines.slice(0, 5).map((p, i) => (
+                        <div key={`${p.at}-${i}`} className="text-xs font-mono text-[#4ecdc4] bg-white/5 rounded-lg px-3 py-2">
+                          <span className="text-muted-foreground mr-2">{p.action}</span>
+                          {(p.pipeline || []).join(" → ")}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <ActivityTimeline items={activity} />
                 <KnowledgeGraph circleId={circleId} />
               </div>
             )}
@@ -449,6 +528,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                 )}
               </div>
             )}
+
+            {tab === "settings" && (
+              <DashboardSettings
+                circleName={(circle?.name as string) || undefined}
+                careModes={(circle?.care_modes as string[]) || []}
+              />
+            )}
           </div>
 
           <div className="w-80 border-l border-white/10 hidden lg:block">
@@ -460,12 +546,18 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
       {tab !== "emergency" && (
         <button
           onClick={() => setTab("emergency")}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#ff6b6b] shadow-lg shadow-[#ff6b6b]/30 flex items-center justify-center hover:scale-105 transition z-50 lg:hidden"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#ff6b6b] shadow-lg shadow-[#ff6b6b]/30 flex items-center justify-center hover:scale-105 transition z-40 lg:hidden"
           aria-label="Emergency"
         >
           <Warning2 size={28} color="#fff" variant="Bold" />
         </button>
       )}
+
+      <DashboardInteractiveControls
+        activeTab={tab}
+        onTabChange={setTab}
+        onAction={handleControlAction}
+      />
     </div>
   );
 }

@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft2, ArrowRight2, Profile, Sms } from "iconsax-react";
 import { api } from "@/lib/api";
+import {
+  clearCircleSession,
+  getSavedCircleId,
+  getSavedProfile,
+  saveCircleSession,
+} from "@/lib/circle-session";
 import { BrandLogo, CARE_MODE_ICONS } from "@/lib/icons";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -17,8 +23,25 @@ const CARE_MODES = [
 ];
 
 export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <OnboardingForm />
+    </Suspense>
+  );
+}
+
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const startFresh = searchParams.get("new") === "1";
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     name: "",
@@ -28,6 +51,33 @@ export default function OnboardingPage() {
     primary_member_email: "",
     care_modes: [] as string[],
   });
+
+  useEffect(() => {
+    const saved = getSavedProfile();
+    if (saved) {
+      setForm((f) => ({
+        ...f,
+        name: saved.circle_name || f.name,
+        recipient_name: saved.recipient_name || f.recipient_name,
+        primary_member_name: saved.primary_member_name || f.primary_member_name,
+        primary_member_email: saved.primary_member_email || f.primary_member_email,
+      }));
+    }
+
+    const id = getSavedCircleId();
+    if (!id || startFresh) {
+      setCheckingSession(false);
+      return;
+    }
+
+    api
+      .getCircle(id)
+      .then(() => router.replace(`/dashboard/${id}`))
+      .catch(() => {
+        clearCircleSession();
+        setCheckingSession(false);
+      });
+  }, [router, startFresh]);
 
   const toggleMode = (id: string) => {
     setForm((f) => ({
@@ -51,7 +101,12 @@ export default function OnboardingPage() {
         primary_member_name: form.primary_member_name,
         primary_member_email: form.primary_member_email,
       });
-      localStorage.setItem("neuroloom_circle_id", circle.id);
+      saveCircleSession(circle.id, {
+        primary_member_name: form.primary_member_name,
+        primary_member_email: form.primary_member_email,
+        recipient_name: form.recipient_name,
+        circle_name: form.name,
+      });
       router.push(`/dashboard/${circle.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create circle");
@@ -59,6 +114,14 @@ export default function OnboardingPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        Loading your care circle…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

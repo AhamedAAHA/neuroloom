@@ -154,3 +154,26 @@ class CircleOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MagicLinkRequest(BaseModel):
+    email: str
+
+
+class MagicLinkResponse(BaseModel):
+    message: str
+    magic_link: str
+    expires_at: str
+
+
+class SessionOut(BaseModel):
+    email: str
+    name: str
+    role: str
+
+
+class VerifyResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: SessionOut
+    circles: list[dict]

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Neuroloom — Prompt Pirates Pitch</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --coral: #ff6b6b;
+      --teal: #4ecdc4;
+      --bg: #09090b;
+      --card: rgba(255,255,255,0.04);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: #fafafa; font-family: Inter, system-ui, sans-serif; overflow: hidden; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide {
+      position: absolute; inset: 0; padding: 48px 64px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; opacity: 0; visibility: hidden; transition: opacity 0.5s, transform 0.5s;
+      transform: translateY(20px);
+    }
+    .slide.active { opacity: 1; visibility: visible; transform: translateY(0); }
+    h1, h2 { font-family: "Space Grotesk", sans-serif; }
+    .gradient { background: linear-gradient(135deg, var(--coral), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .tag { display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); font-size: 12px; color: #a1a1aa; margin-bottom: 16px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 900px; width: 100%; text-align: left; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 960px; width: 100%; }
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; text-align: left; animation: fadeUp 0.6s ease both; }
+    .card h3 { color: var(--teal); font-size: 15px; margin-bottom: 6px; }
+    .card p { color: #a1a1aa; font-size: 13px; line-height: 1.5; }
+    .logo { width: 72px; height: 72px; margin-bottom: 20px; animation: pulse 2s ease infinite; }
+    .progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--coral), var(--teal)); transition: width 0.3s; z-index: 99; }
+    .nav { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 99; }
+    .nav button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(9,9,11,0.8); color: #fff; cursor: pointer; font-size: 18px; }
+    .pipeline { font-family: monospace; font-size: 13px; color: var(--teal); background: rgba(78,205,196,0.08); padding: 10px 16px; border-radius: 10px; margin: 8px 0; }
+    ul.features { list-style: none; text-align: left; max-width: 700px; }
+    ul.features li { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #d4d4d8; font-size: 15px; }
+    ul.features li span { color: var(--coral); font-weight: 600; }
+    .team { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
+    .team div { background: var(--card); border-radius: 14px; padding: 16px 24px; border: 1px solid rgba(255,255,255,0.08); }
+    canvas { max-height: 220px; max-width: 480px; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    .slide.active .card:nth-child(2) { animation-delay: 0.1s; }
+    .slide.active .card:nth-child(3) { animation-delay: 0.2s; }
+    .slide.active .card:nth-child(4) { animation-delay: 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <div class="deck" id="deck">
+
+    <section class="slide active">
+      <img src="../services/web/public/logo-icon.svg" alt="" class="logo"/>
+      <span class="tag">AMD Developer Hackathon · Track 3 · Gemma on AMD</span>
+      <h1 style="font-size: clamp(36px,6vw,64px); margin-bottom: 12px;"><span class="gradient">Neuroloom</span></h1>
+      <p style="font-size: 22px; color: #d4d4d8; max-width: 640px;">Your family care command center — multi-agent AI on AMD Gemma</p>
+      <div class="team">
+        <div><strong>Team Prompt Pirates</strong><br/><span style="color:#71717a;font-size:13px">Ahamed AAH · Avashik Ahamed</span></div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <span class="tag">The Problem</span>
+      <h2 style="font-size: 42px; margin-bottom: 20px;">Care shouldn't feel like <span class="gradient">chaos</span></h2>
+      <ul class="features">
+        <li><span>60%</span> of seniors take 3+ medications daily</li>
+        <li><span>4+ apps</span> families use to coordinate care</li>
+        <li><span>72 hours</span> post-discharge is the highest-risk window</li>
+        <li><span>Zero</span> unified view for siblings, seniors, and primary caregivers</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <span class="tag">Solution</span>
+      <h2 style="font-size: 38px; margin-bottom: 24px;">One dashboard. <span class="gradient">Nine agents.</span></h2>
+      <div class="grid3">
+        <div class="card"><h3>Conductor</h3><p>Routes multi-step pipelines across all agents</p></div>
+        <div class="card"><h3>MedGuard</h3><p>Extracts & validates medications from text/PDF</p></div>
+        <div class="card"><h3>Document Vault</h3><p>Summarizes discharge & insurance documents</p></div>
+        <div class="card"><h3>Schedule Keeper</h3><p>Parses appointments & med reminders</p></div>
+        <div class="card"><h3>Handoff</h3><p>AI shift briefings between caregivers</p></div>
+        <div class="card"><h3>Trend Analyst</h3><p>Mood pattern alerts from check-ins</p></div>
+        <div class="card"><h3>Family Sync</h3><p>Task assignment across the circle</p></div>
+        <div class="card"><h3>Emergency Pack</h3><p>One-tap ER-ready care packet</p></div>
+        <div class="card"><h3>Check-in Companion</h3><p>Senior-friendly mood logging</p></div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <span class="tag">Agent Pipelines</span>
+      <h2 style="font-size: 34px; margin-bottom: 20px;">Conductor orchestration</h2>
+      <div style="max-width: 720px; width: 100%; text-align: left;">
+        <div class="pipeline">medication_extract → Conductor → MedGuard → ScheduleKeeper</div>
+        <div class="pipeline">document_upload → Conductor → DocumentVault → MedGuard</div>
+        <div class="pipeline">check_in → Conductor → CheckInCompanion → TrendAnalyst</div>
+        <div class="pipeline">handoff → Conductor → Handoff Agent (Gemma AMD)</div>
+      </div>
+      <p style="margin-top: 20px; color: #71717a; font-size: 14px;">Every pipeline logged in Activity Timeline + Agent History with expandable metadata</p>
+    </section>
+
+    <section class="slide">
+      <span class="tag">AMD + Gemma Stack</span>
+      <h2 style="font-size: 34px; margin-bottom: 16px;"><span class="gradient">Gemma on AMD</span> architecture</h2>
+      <div class="grid2">
+        <div class="card"><h3>Inference</h3><p>google/gemma-3-4b-it via vLLM + ROCm on AMD Developer Cloud. OpenAI-compatible proxy on :8080.</p></div>
+        <div class="card"><h3>Overflow</h3><p>Fireworks AI Gemma 12B for long-context synthesis when needed.</p></div>
+        <div class="card"><h3>Frontend</h3><p>Next.js 15 · React 19 · Framer Motion · React Flow knowledge graph</p></div>
+        <div class="card"><h3>Interactive</h3><p>Web Speech voice commands · MediaPipe hand gestures · Senior large-touch UI</p></div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <span class="tag">Impact</span>
+      <h2 style="font-size: 32px; margin-bottom: 16px;">Why families choose Neuroloom</h2>
+      <canvas id="impactChart"></canvas>
+    </section>
+
+    <section class="slide">
+      <span class="tag">Team Prompt Pirates</span>
+      <h2 style="font-size: 40px; margin-bottom: 16px;" class="gradient">Thank you</h2>
+      <p style="color: #d4d4d8; font-size: 18px; max-width: 560px;">Neuroloom — weaving family care into one living command center.</p>
+      <div class="team" style="margin-top: 32px;">
+        <div>Ahamed AAH<br/><span style="color:#71717a;font-size:13px">hubaibahamedaaha@gmail.com</span></div>
+        <div>Avashik Ahamed<br/><span style="color:#71717a;font-size:13px">avashik529@gmail.com</span></div>
+      </div>
+      <p style="margin-top: 24px; color: var(--teal); font-size: 14px;">github.com/AhamedAAHA/neuroloom</p>
+    </section>
+  </div>
+
+  <div class="nav">
+    <button type="button" id="prev" aria-label="Previous">←</button>
+    <button type="button" id="next" aria-label="Next">→</button>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    let i = 0;
+    const progress = document.getElementById("progress");
+    function show(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, j) => s.classList.toggle("active", j === i));
+      progress.style.width = ((i + 1) / slides.length * 100) + "%";
+      if (i === 5 && !window._chart) initChart();
+    }
+    document.getElementById("prev").onclick = () => show(i - 1);
+    document.getElementById("next").onclick = () => show(i + 1);
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight" || e.key === " ") show(i + 1);
+      if (e.key === "ArrowLeft") show(i - 1);
+    });
+    function initChart() {
+      window._chart = true;
+      new Chart(document.getElementById("impactChart"), {
+        type: "bar",
+        data: {
+          labels: ["Med errors", "Missed handoffs", "Doc chaos", "Emergency prep"],
+          datasets: [{
+            label: "Reduction potential %",
+            data: [45, 60, 55, 70],
+            backgroundColor: ["#4ecdc4", "#ff6b6b", "#a78bfa", "#fbbf24"],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, max: 100, ticks: { color: "#71717a" }, grid: { color: "rgba(255,255,255,0.06)" } },
+            x: { ticks: { color: "#a1a1aa" }, grid: { display: false } }
+          }
+        }
+      });
+    }
+    show(0);
+  </script>
+</body>
+</html>

@@ -24,11 +24,12 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+  * {
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -59,17 +60,30 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    -webkit-text-fill-color: transparent;
     animation: chaos-shimmer 4s ease-in-out infinite;
-    text-shadow: 0 0 40px rgba(255, 107, 107, 0.35);
+    filter: drop-shadow(0 0 20px rgba(255, 107, 107, 0.35));
   }
-  .hero-scrim {
+  .hero-content-panel {
+    padding: 1.25rem;
+    border-radius: 1.5rem;
     background: linear-gradient(
-      105deg,
-      rgba(9, 9, 11, 0.97) 0%,
-      rgba(9, 9, 11, 0.88) 42%,
-      rgba(9, 9, 11, 0.45) 68%,
-      rgba(9, 9, 11, 0.2) 100%
+      135deg,
+      rgba(9, 9, 11, 0.88) 0%,
+      rgba(9, 9, 11, 0.72) 55%,
+      rgba(9, 9, 11, 0.45) 100%
     );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+  }
+  @media (min-width: 1024px) {
+    .hero-content-panel {
+      padding: 2rem;
+      max-width: 36rem;
+    }
+  }
+  .section-anchor {
+    scroll-margin-top: 6rem;
   }
 }
 
@@ -90,9 +104,42 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .chaos-word {
+    animation: none;
+    background-position: 0% center;
+  }
+}
+
+/* React Flow — dark theme (fixes white Controls + MiniMap boxes) */
+.react-flow__controls {
+  background: rgba(24, 24, 27, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  fill: #e4e4e7 !important;
+  color: #e4e4e7 !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.react-flow__minimap {
+  background: rgba(24, 24, 27, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
 }

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   Cpu,
   DocumentText,
@@ -6,7 +7,6 @@ import {
   Heart,
   Hospital,
   People,
-  ShieldTick,
   TaskSquare,
 } from "iconsax-react";
 
@@ -35,6 +35,7 @@ const AGENT_ICON_MAP: Record<string, typeof Health> = {
   Handoff: People,
   DocumentVault: DocumentText,
   CheckinCompanion: Heart,
+  CheckInCompanion: Heart,
   EmergencyPack: Flash,
   FamilySync: TaskSquare,
   TrendAnalyst: Cpu,
@@ -46,25 +47,38 @@ export function AgentIcon({ name, size = 24 }: { name: string; size?: number }) 
   return <Icon size={size} color={BRAND.teal} variant="Bulk" />;
 }
 
-export function BrandLogo({ size = 32, className }: { size?: number; className?: string }) {
+export function BrandLogo({
+  size = 32,
+  className,
+  variant = "icon",
+}: {
+  size?: number;
+  className?: string;
+  variant?: "icon" | "full";
+}) {
+  if (variant === "full") {
+    const height = Math.round(size * 0.28);
+    const width = Math.round(height * (240 / 56));
+    return (
+      <Image
+        src="/logo.svg"
+        alt="Neuroloom"
+        width={width}
+        height={height}
+        className={className}
+        priority
+      />
+    );
+  }
   return (
-    <div
+    <Image
+      src="/logo-icon.svg"
+      alt="Neuroloom"
+      width={size}
+      height={size}
       className={className}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.28,
-        background: `linear-gradient(135deg, ${BRAND.coral}, ${BRAND.teal})`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 700,
-        fontSize: size * 0.42,
-        color: "#fff",
-      }}
-    >
-      N
-    </div>
+      priority
+    />
   );
 }
 
@@ -91,4 +105,4 @@ export const CARE_MODE_ICONS: Record<
   long_distance: { Icon: People, color: "#60a5fa" },
 };
 
-export { Cpu, DocumentText, Flash, Health, ShieldTick, Category } from "iconsax-react";
+export { Cpu, DocumentText, Flash, Health, Category } from "iconsax-react";

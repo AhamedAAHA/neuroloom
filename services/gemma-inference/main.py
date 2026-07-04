@@ -1,28 +1,33 @@
 """
 Neuroloom Gemma Inference Service
-==================================
-OpenAI-compatible API for Gemma models on AMD GPUs via ROCm + vLLM.
+OpenAI-compatible API for Gemma on AMD GPUs (ROCm + vLLM).
 
-For AMD Developer Cloud deployment:
-  1. Use ROCm-enabled base image (rocm/vllm or custom)
-  2. Set ROCM_VISIBLE_DEVICES
-  3. Load google/gemma-3-4b-it or gemma-3-12b-it
+Backends (INFERENCE_BACKEND):
+  stub  — local dev / demo without GPU (default)
+  vllm  — proxy to vLLM OpenAI server on AMD (set VLLM_BASE_URL)
 
-This stub provides OpenAI-compatible responses for local dev and judging
-when GPU inference is not available. Replace with vLLM in production on AMD.
+AMD Developer Cloud quick start:
+  pip install vllm  # ROCm build on MI210/MI300
+  vllm serve google/gemma-3-4b-it --host 0.0.0.0 --port 8001
+  export INFERENCE_BACKEND=vllm
+  export VLLM_BASE_URL=http://localhost:8001/v1
+  uvicorn main:app --host 0.0.0.0 --port 8080
 """
 
+import json
 import os
 import time
 import uuid
 
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="Neuroloom Gemma Inference (AMD)", version="1.0.0")
+app = FastAPI(title="Neuroloom Gemma Inference (AMD)", version="1.1.0")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-3-4b-it")
-BACKEND = os.getenv("INFERENCE_BACKEND", "stub")  # stub | vllm
+BACKEND = os.getenv("INFERENCE_BACKEND", "stub").lower()
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8001/v1").rstrip("/")
 
 
 class Message(BaseModel):
@@ -39,18 +44,51 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {
+    details = {
         "status": "ok",
         "model": MODEL_NAME,
         "backend": BACKEND,
-        "platform": "AMD ROCm (configure vLLM for production)",
+        "platform": "AMD ROCm + vLLM" if BACKEND == "vllm" else "AMD ROCm (stub — set INFERENCE_BACKEND=vllm)",
     }
+    if BACKEND == "vllm":
+        try:
+            with httpx.Client(timeout=3.0) as client:
+                r = client.get(f"{VLLM_BASE_URL.replace('/v1', '')}/health", follow_redirects=True)
+                details["vllm_reachable"] = r.status_code < 500
+                details["vllm_url"] = VLLM_BASE_URL
+        except Exception as e:
+            details["vllm_reachable"] = False
+            details["vllm_error"] = str(e)
+    return details
 
 
 @app.post("/v1/chat/completions")
 def chat_completions(req: ChatRequest):
+    if BACKEND == "vllm":
+        return _vllm_complete(req)
     user_msg = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
-    content = _generate(user_msg)
+    content = _stub_generate(user_msg)
+    return _openai_response(req, content)
+
+
+def _vllm_complete(req: ChatRequest) -> dict:
+    payload = {
+        "model": req.model or MODEL_NAME,
+        "messages": [m.model_dump() for m in req.messages],
+        "max_tokens": req.max_tokens,
+        "temperature": req.temperature,
+    }
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            resp = client.post(f"{VLLM_BASE_URL}/chat/completions", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"vLLM unavailable at {VLLM_BASE_URL}: {e}") from e
+
+
+def _openai_response(req: ChatRequest, content: str) -> dict:
+    user_msg = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
         "object": "chat.completion",
@@ -61,40 +99,43 @@ def chat_completions(req: ChatRequest):
             "message": {"role": "assistant", "content": content},
             "finish_reason": "stop",
         }],
-        "usage": {"prompt_tokens": len(user_msg.split()), "completion_tokens": len(content.split()), "total_tokens": 0},
+        "usage": {
+            "prompt_tokens": len(user_msg.split()),
+            "completion_tokens": len(content.split()),
+            "total_tokens": 0,
+        },
     }
 
 
-def _generate(prompt: str) -> str:
-  import json
-  p = prompt.lower()
-  if "medication" in p or "pill" in p or "prescription" in p or "json array" in p:
-    return json.dumps([
-      {"name": "Metformin", "dose": "500mg", "schedule": "08:00 and 20:00 daily", "instructions": "Take with food"},
-      {"name": "Lisinopril", "dose": "10mg", "schedule": "08:00 daily", "instructions": "Take in the morning"},
-    ])
-  if "handoff" in p or "shift" in p:
-    return (
-      "## Care Handoff Briefing\n\n"
-      "**Completed today:** Morning medications taken on schedule. Hydration adequate.\n\n"
-      "**Pending:** Evening medications at 20:00. Prepare for cardiology follow-up.\n\n"
-      "**Watch items:** Patient reported mild fatigue — monitor through evening.\n\n"
-      "**Emergency contacts:** Primary physician, local pharmacy, family lead caregiver."
-    )
-  if "emergency" in p:
-    return (
-      "# Emergency Care Packet\n\n"
-      "**Medications:** See current medication list in Neuroloom vault.\n"
-      "**Allergies:** Verify with family on arrival.\n"
-      "**Recent status:** Latest check-in on file.\n"
-      "**Note:** Generated by Neuroloom — coordination only, not medical advice."
-    )
-  if "document" in p or "discharge" in p or "summarize" in p:
-    return (
-      "Summary: Discharge instructions processed. Continue prescribed medications. "
-      "Schedule cardiology follow-up within 7 days. Monitor for dizziness or shortness of breath. "
-      "Contact physician if symptoms worsen."
-    )
-  if "json" in p and "title" in p:
-    return json.dumps({"title": "Cardiology follow-up", "event_type": "appointment", "notes": "Bring medication list"})
-  return f"[Gemma on AMD] Processed request. For full inference, deploy vLLM with ROCm on AMD Developer Cloud."
+def _stub_generate(prompt: str) -> str:
+    p = prompt.lower()
+    if "medication" in p or "pill" in p or "prescription" in p or "json array" in p:
+        return json.dumps([
+            {"name": "Metformin", "dose": "500mg", "schedule": "08:00 and 20:00 daily", "instructions": "Take with food"},
+            {"name": "Lisinopril", "dose": "10mg", "schedule": "08:00 daily", "instructions": "Take in the morning"},
+        ])
+    if "handoff" in p or "shift" in p:
+        return (
+            "## Care Handoff Briefing\n\n"
+            "**Completed today:** Morning medications taken on schedule. Hydration adequate.\n\n"
+            "**Pending:** Evening medications at 20:00. Prepare for cardiology follow-up.\n\n"
+            "**Watch items:** Patient reported mild fatigue — monitor through evening.\n\n"
+            "**Emergency contacts:** Primary physician, local pharmacy, family lead caregiver."
+        )
+    if "emergency" in p:
+        return (
+            "# Emergency Care Packet\n\n"
+            "**Medications:** See current medication list in Neuroloom vault.\n"
+            "**Allergies:** Verify with family on arrival.\n"
+            "**Recent status:** Latest check-in on file.\n"
+            "**Note:** Generated by Neuroloom — coordination only, not medical advice."
+        )
+    if "document" in p or "discharge" in p or "summarize" in p:
+        return (
+            "Summary: Discharge instructions processed. Continue prescribed medications. "
+            "Schedule cardiology follow-up within 7 days. Monitor for dizziness or shortness of breath. "
+            "Contact physician if symptoms worsen."
+        )
+    if "json" in p and "title" in p:
+        return json.dumps({"title": "Cardiology follow-up", "event_type": "appointment", "notes": "Bring medication list"})
+    return "[Gemma stub] Set INFERENCE_BACKEND=vllm and deploy vLLM on AMD for live inference."

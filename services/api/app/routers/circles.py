@@ -212,8 +212,7 @@ async def create_checkin(circle_id: uuid.UUID, payload: CheckInCreate, db: Async
     await db.flush()
 
     orch = AgentOrchestrator(db, circle_id)
-    await orch.add_graph_node("checkin", f"Mood {payload.mood}/5", {"notes": payload.notes})
-    await orch.analyze_trends()
+    await orch.process_check_in(checkin)
     return checkin
 
 
@@ -254,7 +253,7 @@ async def create_task(circle_id: uuid.UUID, payload: TaskCreate, db: AsyncSessio
     db.add(task)
     await db.flush()
     orch = AgentOrchestrator(db, circle_id)
-    await orch.log_agent("FamilySync", f"Task assigned: {task.title}", status=AgentStatus.COMPLETE)
+    await orch.process_task(task)
     return task
 
 
@@ -286,10 +285,125 @@ async def list_agent_runs(circle_id: uuid.UUID, db: AsyncSession = Depends(get_d
             "status": r.status.value,
             "message": r.message,
             "model_route": r.model_route,
+            "metadata": r.metadata_json or {},
             "created_at": r.created_at.isoformat(),
         }
         for r in runs
     ]
+
+
+@router.get("/{circle_id}/agents/stats")
+async def agent_stats(circle_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    await _get_circle(db, circle_id)
+    result = await db.execute(select(AgentRun).where(AgentRun.circle_id == circle_id))
+    runs = result.scalars().all()
+
+    by_agent: dict[str, int] = {}
+    by_status: dict[str, int] = {}
+    pipelines: list[dict] = []
+    for r in runs:
+        by_agent[r.agent_name] = by_agent.get(r.agent_name, 0) + 1
+        by_status[r.status.value] = by_status.get(r.status.value, 0) + 1
+        if r.agent_name == "Conductor" and r.metadata_json.get("pipeline"):
+            pipelines.append(
+                {
+                    "action": r.metadata_json.get("action"),
+                    "pipeline": r.metadata_json.get("pipeline"),
+                    "at": r.created_at.isoformat(),
+                }
+            )
+
+    return {
+        "total_runs": len(runs),
+        "by_agent": by_agent,
+        "by_status": by_status,
+        "recent_pipelines": pipelines[:10],
+    }
+
+
+@router.get("/{circle_id}/activity")
+async def activity_timeline(circle_id: uuid.UUID, limit: int = 30, db: AsyncSession = Depends(get_db)):
+    await _get_circle(db, circle_id)
+    items: list[dict] = []
+
+    meds = (await db.execute(select(Medication).where(Medication.circle_id == circle_id))).scalars().all()
+    for m in meds:
+        items.append(
+            {
+                "type": "medication",
+                "id": str(m.id),
+                "title": m.name,
+                "detail": f"{m.dose} · {m.schedule}",
+                "timestamp": m.created_at.isoformat(),
+            }
+        )
+
+    checkins = (await db.execute(select(CheckIn).where(CheckIn.circle_id == circle_id))).scalars().all()
+    for c in checkins:
+        items.append(
+            {
+                "type": "checkin",
+                "id": str(c.id),
+                "title": f"Mood {c.mood}/5",
+                "detail": c.notes or "",
+                "timestamp": c.created_at.isoformat(),
+            }
+        )
+
+    handoffs = (await db.execute(select(Handoff).where(Handoff.circle_id == circle_id))).scalars().all()
+    for h in handoffs:
+        items.append(
+            {
+                "type": "handoff",
+                "id": str(h.id),
+                "title": f"{h.from_member} → {h.to_member}",
+                "detail": (h.briefing or "")[:120],
+                "timestamp": h.created_at.isoformat(),
+            }
+        )
+
+    docs = (await db.execute(select(Document).where(Document.circle_id == circle_id))).scalars().all()
+    for d in docs:
+        items.append(
+            {
+                "type": "document",
+                "id": str(d.id),
+                "title": d.filename,
+                "detail": (d.summary or "")[:120],
+                "timestamp": d.created_at.isoformat(),
+            }
+        )
+
+    tasks = (await db.execute(select(FamilyTask).where(FamilyTask.circle_id == circle_id))).scalars().all()
+    for t in tasks:
+        if not t.due_at:
+            continue
+        items.append(
+            {
+                "type": "task",
+                "id": str(t.id),
+                "title": t.title,
+                "detail": "Completed" if t.completed else "Pending",
+                "timestamp": t.due_at.isoformat(),
+            }
+        )
+
+    agents = (await db.execute(select(AgentRun).where(AgentRun.circle_id == circle_id))).scalars().all()
+    for a in agents:
+        items.append(
+            {
+                "type": "agent",
+                "id": str(a.id),
+                "title": a.agent_name,
+                "detail": a.message,
+                "timestamp": a.created_at.isoformat(),
+                "meta": {"status": a.status.value, "route": a.model_route, **(a.metadata_json or {})},
+            }
+        )
+
+    items = [i for i in items if i.get("timestamp")]
+    items.sort(key=lambda x: x["timestamp"], reverse=True)
+    return items[:limit]
 
 
 @router.get("/{circle_id}/graph")
@@ -299,9 +413,36 @@ async def get_knowledge_graph(circle_id: uuid.UUID, db: AsyncSession = Depends(g
     nodes = result.scalars().all()
 
     graph_nodes = [{"id": str(n.id), "type": n.node_type, "label": n.label, "data": n.data} for n in nodes]
-    edges = []
-    for i, n in enumerate(nodes[:-1]):
-        edges.append({"source": str(nodes[i].id), "target": str(nodes[i + 1].id), "label": "related"})
+    edges: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    for n in nodes:
+        for link in n.data.get("links", []):
+            target_id = link.get("target_id")
+            relation = link.get("relation", "related")
+            if target_id:
+                key = (str(n.id), target_id, relation)
+                if key not in seen:
+                    seen.add(key)
+                    edges.append({"source": str(n.id), "target": target_id, "label": relation})
+
+    type_relations = {
+        ("document", "event"): "suggests",
+        ("medication", "event"): "scheduled_as",
+        ("checkin", "medication"): "monitors",
+        ("handoff", "task"): "covers",
+    }
+    by_type: dict[str, list] = {}
+    for n in nodes:
+        by_type.setdefault(n.node_type, []).append(n)
+
+    for (src_type, tgt_type), label in type_relations.items():
+        for src in by_type.get(src_type, []):
+            for tgt in by_type.get(tgt_type, []):
+                key = (str(src.id), str(tgt.id), label)
+                if key not in seen:
+                    seen.add(key)
+                    edges.append({"source": str(src.id), "target": str(tgt.id), "label": label})
 
     return {"nodes": graph_nodes, "edges": edges}
 

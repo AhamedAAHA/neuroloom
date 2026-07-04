@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     minio_access_key: str = "neuroloom"
     minio_secret_key: str = "neuroloomsecret"
     cors_origins: str = "http://localhost:3000"
+    web_app_url: str = "http://localhost:3000"
     secret_key: str = "neuroloom-dev-secret-change-in-production"
 
     class Config:

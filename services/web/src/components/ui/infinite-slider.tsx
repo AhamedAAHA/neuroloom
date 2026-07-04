@@ -41,7 +41,7 @@ export function InfiniteSlider({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <motion.div className="flex w-max" style={{ x, gap }} ref={ref}>
+      <motion.div className="flex w-max" style={{ x, gap: `${gap}px` }} ref={ref}>
         {children}
         {children}
       </motion.div>

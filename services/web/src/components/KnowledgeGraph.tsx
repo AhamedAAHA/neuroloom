@@ -57,10 +57,17 @@ export default function KnowledgeGraph({ circleId }: { circleId: string }) {
           Agents will build the knowledge graph as you add care data
         </div>
       ) : (
-        <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
+        <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }} colorMode="dark">
           <Background color="#ffffff10" gap={20} />
-          <Controls />
-          <MiniMap nodeColor={(n) => (n.style as { background?: string })?.background as string || "#8b9cb3"} />
+          <Controls
+            showInteractive={false}
+            className="!bg-zinc-900/90 !border !border-white/10 !rounded-xl !shadow-lg overflow-hidden [&>button]:!bg-transparent [&>button]:!border-white/10 [&>button]:!text-zinc-200 [&>button:hover]:!bg-white/10 [&>button>svg]:!fill-current"
+          />
+          <MiniMap
+            className="!bg-zinc-900/90 !border !border-white/10 !rounded-xl !shadow-lg"
+            maskColor="rgba(9, 9, 11, 0.75)"
+            nodeColor={(n) => (n.style as { background?: string })?.background as string || "#8b9cb3"}
+          />
         </ReactFlow>
       )}
     </div>
